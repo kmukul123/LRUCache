@@ -31,16 +31,23 @@ namespace CacheLibrary
         }
 
 
+        /// <summary>
+        /// gets the last element from the cache which can be removed if needed
+        /// </summary>
+        /// <returns></returns>
         internal LinkedListNode<CacheNode<T, V>> Last()
         {
             if (list.Count>2) return list.Last.Previous;
             return null;
         }
 
-        internal uint Count => (uint)list.Count();
+        internal uint Count => (uint)list.Count() - 2;
 
         
-
+        /// <summary>
+        /// thread safe method which adds the given node to the top of the list
+        /// </summary>
+        /// <param name="cachenode">node to be added, if the node is added by some other thread it returns</param>
         internal void AddFirst(LinkedListNode<CacheNode<T, V>> cachenode)
         {
             bool added = false;
@@ -130,22 +137,34 @@ namespace CacheLibrary
 
         internal void promote(LinkedListNode<CacheNode<T, V>> cachenode)
         {
-            Debug.Assert(this.list.Count > 2);
+            Debug.Assert(this.list.Count >= 2);
             if (FirstNode.Next == cachenode) return;
 
-            this.Remove(cachenode);
-            this.AddFirst(cachenode);
+            
+            if (this.Remove(cachenode)) 
+                //the condition on this isnt required but will reduce the concurrency locks
+                //its a good test to remove the if to test concucurrency of addfirst
+                this.AddFirst(cachenode);
         }
 
-        internal void Remove(LinkedListNode<CacheNode<T, V>> valueRemoved)
+        /// <summary>
+        /// remove the given element from the given list the method is threadsafe
+        /// it tries to lock the previous element in the list and the current and next before trying the operation
+        /// it keeps retrying until successful
+        /// </summary>
+        /// <param name="valueRemoved"></param>
+        /// <returns>if the element is removed by current call it returns true
+        /// if the element is removed by some other thread it returns false
+        /// </returns>
+        internal bool Remove(LinkedListNode<CacheNode<T, V>> valueRemoved)
         {
             var trycount = 0;
-            Debug.Assert(this.list.Count > 2);
+            Debug.Assert(this.list.Count >= 2);
             ArrayList locks = new ArrayList();
             do
             {
                 if (valueRemoved.List == null)
-                    return;
+                    return false;
                 if (this.TryLock(valueRemoved, locks))
                 {
                     this.list.Remove(valueRemoved);
@@ -157,6 +176,7 @@ namespace CacheLibrary
                     Logger.Info($"retryremove {valueRemoved.Value.key} removed {trycount}");
                 Thread.Sleep(0);
             } while (true);
+            return true;
         }
 
 

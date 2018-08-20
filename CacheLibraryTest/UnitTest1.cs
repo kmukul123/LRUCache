@@ -52,6 +52,7 @@ namespace CacheLibraryTest
             Assert.AreEqual(this.cache.Count, 2U);
             this.cache.AddOrUpdate("three", "3");
             Assert.AreEqual(this.cache.Count, 3U);
+            this.cache.checkSize(3);
         }
         [TestMethod]
         public void TestEviction()
@@ -63,6 +64,7 @@ namespace CacheLibraryTest
             Assert.AreEqual(this.cache.Count, 2U);
             this.cache.AddOrUpdate("three", "3");
             Assert.AreEqual(this.cache.Count, 2U);
+            this.cache.checkSize(2);
         }
 
         [TestMethod]
@@ -113,8 +115,13 @@ namespace CacheLibraryTest
                 Logger.Warn($"Waiting for tasks {pendingTasks.Count}");
                 await Task.Delay(100);
             }
+            this.cache.checkSize(2);
         }
 
+        /// <summary>
+        /// TODO:the code for this test and QueryParallel can be simplified to remove duplicate code
+        /// </summary>
+        /// <returns></returns>
         [TestMethod]
         public async Task InsertOrUpdateParallel()
         {
@@ -166,6 +173,7 @@ namespace CacheLibraryTest
                 Logger.Warn($"Waiting for tasks count={pendingTasks.Count}");
                 await Task.Delay(100);
             }
+            this.cache.checkSize(2);
         }
 
         private void checkvalue(string key, string keyvalue)

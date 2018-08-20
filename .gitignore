@@ -132,8 +132,8 @@ _TeamCity*
 !.axoCover/settings.json
 
 # Visual Studio code coverage results
-#*.coverage
-#*.coveragexml
+*.coverage
+*.coveragexml
 
 # NCrunch
 _NCrunch_*

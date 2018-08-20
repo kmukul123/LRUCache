@@ -10,7 +10,8 @@ using System.Threading.Tasks;
 namespace CacheLibrary
 {
     /// <summary>
-    /// Thread Safe cache which implements ICache Methods
+    /// Thread Safe cache which implements ICache Methods for a given cache size
+    /// the cache is LRU which 
     /// </summary>
     /// <typeparam name="TKey"></typeparam>
     /// <typeparam name="TValue"></typeparam>
@@ -20,8 +21,9 @@ namespace CacheLibrary
         internal uint Count => (uint) cacheDictionary.Count; 
 
         //TODO: we can have interfaces for these
-        private CacheList<TKey,TValue> cacheList;
+        private CacheList<TKey,TValue> cacheList; //the cachelist elements are in the order of they have been recently accessed the element best to remove is at the end
         private ConcurrentDictionary<TKey, LinkedListNode<CacheNode<TKey,TValue>>> cacheDictionary;
+
         private uint cacheSize;
         private const uint minsize = 1;
 
@@ -41,6 +43,8 @@ namespace CacheLibrary
 
         /// <summary>
         /// add or update in the cache.
+        /// if the cache grows over the maximum size one element is evicted
+        /// the element removed fromt the cache is element which is last accessed by AddOrUpdate or TryGetValue
         /// the method is thread safe but order of execution of different operations is not guaranteed
         /// size may temporarily grow over cachesize
         /// </summary>
@@ -75,7 +79,7 @@ namespace CacheLibrary
                 //Logger.Info($"Evicting an element from cache");
                 this.EvictLastUsed();
             }
-            checkSize();
+            //checkSize();
         }
 
         private Func<TKey, LinkedListNode<CacheNode<TKey, TValue>>> createNewLockedNode(TValue value)
@@ -101,9 +105,9 @@ namespace CacheLibrary
                 do
                 {
                     removed = this.cacheDictionary.TryRemove(lastNode.Value.key, out valueRemoved);
-                    Logger.Info($"tryremove from hashtable {lastNode.Value.key} removed {removed}");
                     if (removed) break;
                     if (valueRemoved == null) break;
+                    Logger.Info($"tryremove from hashtable {lastNode.Value.key} removed {removed}");
                 } while (true);
                 if (valueRemoved != null)
                 {
@@ -115,6 +119,13 @@ namespace CacheLibrary
             }
         }
 
+        /// <summary>
+        /// gets the element from cache with the given key, 
+        /// the element is also marked as accessed so its removal will change accordingly.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public bool TryGetValue(TKey key, out TValue value)
         {
             LinkedListNode<CacheNode<TKey, TValue>> valueNode;
@@ -129,10 +140,10 @@ namespace CacheLibrary
         }
 
         [Conditional("DEBUG")]
-        internal void checkSize()
+        internal void checkSize(int expectedSize)
         {
-            //Debug.Assert(this.cacheDictionary.Count() == cacheList.Count-2);
-            //Debug.Assert(this.cacheDictionary.Count() <= this.cacheSize);
+            Debug.Assert(this.cacheDictionary.Count() == expectedSize);
+            Debug.Assert(this.cacheList.Count == (uint) expectedSize);
         }
     }
 }
