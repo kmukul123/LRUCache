@@ -64,19 +64,7 @@ namespace CacheLibrary
                     cachenode.Value.UnlockNode();
                 } else // we can promote this node here
                 {
-                    do
-                    {
-                        bool locked = false;
-                        try
-                        {
-                            locked = cachenode.Value.TryLock();
-                            cachenode.Value.cachedValue = value;
-                            break;
-                        } finally
-                        {
-                            if (locked) cachenode.Value.UnlockNode();
-                        }
-                    } while (true);
+                    cachenode.Value.cachedValue = value;
                     //Logger.Info($"ignoring just found node as its added by another thread with key {cachenode.Value}");
                 }
             } else
