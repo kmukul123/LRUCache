@@ -14,10 +14,10 @@ namespace ConsoleApplication1
             UnitTest1 u = new UnitTest1();
             u.TestCornerCases();
             u.TestEviction();
-            //Task.Run(u.QueryParallel).Wait();
-            Task.Run(u.InsertOrUpdateParallel).Wait();
-            
-            
+            //Task.Run( u.QueryParallel).GetAwaiter().GetResult();
+            Task.Run(u.ParallelInsertUpdate).GetAwaiter().GetResult();
+
+
         }
     }
 }

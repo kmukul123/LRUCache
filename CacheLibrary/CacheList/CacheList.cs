@@ -41,6 +41,16 @@ namespace CacheLibrary
             return null;
         }
 
+        /// <summary>
+        /// gets the last element from the cache which can be removed if needed
+        /// </summary>
+        /// <returns></returns>
+        internal LinkedListNode<CacheNode<T, V>> First()
+        {
+            if (list.Count > 2) return list.First;
+            return null;
+        }
+
         internal uint Count => (uint)list.Count() - 2;
 
         
@@ -68,8 +78,8 @@ namespace CacheLibrary
                     curlocktaken = cachenode.Value.TryLock();
                     if (!curlocktaken)
                         continue;
-                    if (cachenode.List != null)
-                        return;
+                    if (cachenode.List != null) return; //added by another thread
+                    if (FirstNode.Next == cachenode) return; //no need for promotion
                     nextNode = FirstNode.Next.Value;
                     nextlocktaken = nextNode.TryLock();
                     if (!nextlocktaken)
@@ -79,9 +89,9 @@ namespace CacheLibrary
                     added = true;
                 } finally
                 {
-                    if (firstlocktaken) FirstNode.Value.UnlockNode();
-                    if (curlocktaken) cachenode.Value.UnlockNode();
                     if (nextlocktaken) nextNode.UnlockNode();
+                    if (curlocktaken) cachenode.Value.UnlockNode();
+                    if (firstlocktaken) FirstNode.Value.UnlockNode();
                     if (retrycount % 100 == 0)
                         Logger.Info($"retryAddFirst {cachenode.Value.key} tries {retrycount}");
                     Thread.Sleep(0);
@@ -91,9 +101,8 @@ namespace CacheLibrary
         }
 
 
-        internal bool TryLock(LinkedListNode<CacheNode<T, V>> cachenode, ArrayList locksTaken)
+        internal bool TryLock(LinkedListNode<CacheNode<T, V>> cachenode, LinkedListNode<CacheNode<T, V>> prevNode, ArrayList locksTaken)
         {
-            var prevNode = cachenode.Previous;
             bool prevlockTaken = false;
             bool curlockTaken = false;
             bool nextlockTaken = false;
@@ -120,11 +129,11 @@ namespace CacheLibrary
             } finally
             {   if (!locksucceeded)
                 {
-                    if (prevlockTaken) prevNode.Value.UnlockNode();
-                    if (curlockTaken) cachenode.Value.UnlockNode();
                     if (nextlockTaken) nextNode.Value.UnlockNode();
-                } 
-                
+                    if (curlockTaken) cachenode.Value.UnlockNode();
+                    if (prevlockTaken) prevNode.Value.UnlockNode();
+                }
+
             }
             return locksucceeded;
         }
@@ -159,17 +168,36 @@ namespace CacheLibrary
         internal bool Remove(LinkedListNode<CacheNode<T, V>> valueRemoved)
         {
             var trycount = 0;
-            Debug.Assert(this.list.Count >= 2);
+            LinkedListNode<CacheNode<T, V>> prevNode = null;
             ArrayList locks = new ArrayList();
             do
             {
-                if (valueRemoved.List == null)
-                    return false;
-                if (this.TryLock(valueRemoved, locks))
+                bool lockedcurrent = false;
+                try 
                 {
-                    this.list.Remove(valueRemoved);
-                    this.unlock(locks);
-                    break;
+                    lockedcurrent =valueRemoved.Value.TryLock();
+                    if (!lockedcurrent)
+                        continue;
+                    if (valueRemoved.List == null)
+                        return false;
+                    prevNode = valueRemoved.Previous;
+                }
+                finally
+                {
+                    if (lockedcurrent) valueRemoved.Value.UnlockNode();
+                }
+                try 
+                {
+                    lockedcurrent = this.TryLock(valueRemoved, prevNode, locks);
+                    if (lockedcurrent)
+                    {
+                        this.list.Remove(valueRemoved);
+                        break;
+                    }
+                }
+                finally
+                {
+                    if (lockedcurrent) this.unlock(locks);
                 }
                 trycount++;
                 if (trycount %100==0)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -9,6 +10,8 @@ namespace CacheLibrary
 {
     internal class CacheNode<TKey, TValue> /* todo we can have an interface here: ILockedCacheNode */
     {
+        private string locktrace;
+
         internal TKey key { get; private set; }
         //TODO: we can consider using WeakReference in a real cache
         internal TValue cachedValue { get; set; }
@@ -26,14 +29,26 @@ namespace CacheLibrary
         internal void UnlockNode()
         {
             Monitor.Exit(lockobject);
+            this.locktrace = string.Empty;
+            //Logger.Info($"unlock succeeded {Thread.CurrentThread.Name} for {this}" );
         }
         internal bool TryLock()
         {
-            return Monitor.TryEnter(lockobject);
+            bool ret = Monitor.TryEnter(lockobject);
+            if (ret)
+            {
+                this.locktrace = Thread.CurrentThread.Name + Environment.StackTrace;
+                //Logger.Info($"lock succeeded {Thread.CurrentThread.Name} for {this}");
+            }
+            else
+            {
+                    //Logger.Info($"Lock failed for {this} locked by{locktrace}");
+            }
+            return ret;
         }
         public override string ToString()
         {
-            return $"{key}:{cachedValue}";
+            return $"{key}:{cachedValue} ";
         }
         
     }

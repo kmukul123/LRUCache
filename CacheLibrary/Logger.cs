@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace CacheLibrary
 {
@@ -11,7 +12,7 @@ namespace CacheLibrary
     {
         public static void Info(string s)
         {
-            Trace.TraceInformation(DateTime.Now.ToShortTimeString()+" "+s);
+            //Trace.TraceInformation(Thread.CurrentThread.Name +" "+s);
         }
 
         internal static void Error(string v)
@@ -21,7 +22,7 @@ namespace CacheLibrary
 
         internal static void Warn(string v)
         {
-            Trace.TraceWarning(v);
+            Trace.TraceWarning(Thread.CurrentThread.Name + " " + DateTime.Now.ToShortTimeString() + " "+v);
         }
     }
 }

@@ -26,7 +26,7 @@ namespace CacheLibrary
 
         private uint cacheSize;
         private const uint minsize = 1;
-
+        private const uint listSizeVariance = 5;
         /// <summary>
         /// creates a new cache with a given size, the size cannot be changed
         /// this method doesnt need to be threadsafe
@@ -59,12 +59,25 @@ namespace CacheLibrary
             {
                 if (Monitor.IsEntered(cachenode.Value.lockobject))
                 {
-                    Logger.Info($"added new node to cache key={key}");
+                    Logger.Info($"added new node to cache {cachenode.Value}");
                     cacheList.AddFirst(cachenode);
                     cachenode.Value.UnlockNode();
                 } else // we can promote this node here
                 {
-                    Logger.Warn($"ignoring just found node as its added by another thread with key {cachenode.Value.key}");
+                    do
+                    {
+                        bool locked = false;
+                        try
+                        {
+                            locked = cachenode.Value.TryLock();
+                            cachenode.Value.cachedValue = value;
+                            break;
+                        } finally
+                        {
+                            if (locked) cachenode.Value.UnlockNode();
+                        }
+                    } while (true);
+                    //Logger.Info($"ignoring just found node as its added by another thread with key {cachenode.Value}");
                 }
             } else
             {
@@ -74,10 +87,13 @@ namespace CacheLibrary
                 //this can be done in background also
                 this.cacheList.promote(cachenode);
             }
-            if (this.Count > this.cacheSize)
+
+            if (this.Count >= this.cacheSize + listSizeVariance)
             {
-                //Logger.Info($"Evicting an element from cache");
-                this.EvictLastUsed();
+                while (this.Count > this.cacheSize)
+                {
+                    this.EvictLastUsed();
+                }
             }
             //checkSize();
         }
@@ -99,7 +115,7 @@ namespace CacheLibrary
             var lastNode = this.cacheList.Last();
             if (lastNode != null)
             {
-                Logger.Info("freeing up cache removing last used element " + lastNode.Value.key);
+                Logger.Info("freeing up cache removing last used element " + lastNode.Value);
                 LinkedListNode<CacheNode<TKey, TValue>> valueRemoved;
                 var removed = false;
                 do
@@ -107,15 +123,31 @@ namespace CacheLibrary
                     removed = this.cacheDictionary.TryRemove(lastNode.Value.key, out valueRemoved);
                     if (removed) break;
                     if (valueRemoved == null) break;
-                    Logger.Info($"tryremove from hashtable {lastNode.Value.key} removed {removed}");
+                    Logger.Warn($"tryremove from hashtable {lastNode.Value.key} removed {removed}");
                 } while (true);
                 if (valueRemoved != null)
                 {
-                    this.cacheList.Remove(valueRemoved);
+                    int retry = 0;
+                    while (true) {
+                        if (this.cacheList.Remove(valueRemoved))
+                            break;
+                        retry++;
+                        if (retry % 10 == 0)
+                            Logger.Warn($"Remove from list {lastNode.Value} failed tries:{retry}");
+                        var lockedcurrent = valueRemoved.Value.TryLock();
+                        //this could be because it got promoted, 
+                        //we can remove another element in this case as well
+                        //this could also be because another thread removed it
+                        if (!lockedcurrent)
+                            continue;
+                        if (valueRemoved.List == null)
+                            return;
+                        valueRemoved.Value.UnlockNode();
+                    }
                 }
             } else
             {
-                Logger.Error("cacheList.Last returned null");
+                Logger.Warn("error cacheList.Last returned null");
             }
         }
 
@@ -139,11 +171,21 @@ namespace CacheLibrary
             return ret;
         }
 
-        [Conditional("DEBUG")]
         internal void checkSize(int expectedSize)
         {
-            Debug.Assert(this.cacheDictionary.Count() == expectedSize);
-            Debug.Assert(this.cacheList.Count == (uint) expectedSize);
+            //Debug.Assert(this.cacheDictionary.Count() == expectedSize);
+
+            if (this.cacheList.Count <(uint)expectedSize && this.cacheList.Count > expectedSize+ listSizeVariance)
+            {
+                Logger.Warn($"cache list size :{this.cacheList.Count} expected{expectedSize}");
+                var node = this.cacheList.First().Next;
+                do
+                {
+                    Logger.Warn($"failed {node.Value}");
+                    node = node.Next;
+                } while (node.Next != null);
+                throw new Exception($"cache list size:{this.cacheList.Count} expected{expectedSize}");
+            }
         }
     }
 }
