@@ -26,7 +26,7 @@ namespace CacheLibrary
 
         private uint cacheSize;
         private const uint minsize = 1;
-        private const uint listSizeVariance = 5;
+        private const uint listSizeVariance = 2;
         /// <summary>
         /// creates a new cache with a given size, the size cannot be changed
         /// this method doesnt need to be threadsafe

@@ -63,6 +63,7 @@ namespace CacheLibraryTest
             this.cache.AddOrUpdate("two", "2");
             Assert.AreEqual(this.cache.Count, 2U);
             this.cache.AddOrUpdate("three", "3");
+            this.cache.AddOrUpdate("four", "4");
             //Assert.AreEqual(this.cache.Count, 2U);
             this.cache.checkSize(2);
         }
@@ -138,7 +139,7 @@ namespace CacheLibraryTest
                     try
                     {
                         Thread.CurrentThread.Name = taskid;
-                        string oneValue, twoValue, threeValue;
+                        string oneValue, twoValue, threeValue, fourValue, fiveValue;
                         this.cache.AddOrUpdate("one", getTestvalue("one", taskid));
                         if (this.cache.TryGetValue("one", out oneValue))
                             this.checkvalue("one", oneValue);
@@ -151,6 +152,10 @@ namespace CacheLibraryTest
 
                         if (this.cache.TryGetValue("three", out threeValue))
                             this.checkvalue("three", threeValue);
+                        if (this.cache.TryGetValue("four", out fourValue))
+                            this.checkvalue("three", fourValue);
+                        if (this.cache.TryGetValue("five", out fiveValue))
+                            this.checkvalue("five", fiveValue);
                         return taskid;
                     } catch (Exception ex)
                     {
@@ -198,6 +203,10 @@ namespace CacheLibraryTest
                     digit = '2'; break;
                 case "three":
                     digit = '3'; break;
+                case "four":
+                    digit = '4'; break;
+                case "five":
+                    digit = '5'; break;
                 default: throw new ArgumentException(key);
             }
 
