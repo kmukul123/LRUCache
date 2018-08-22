@@ -100,7 +100,16 @@ namespace CacheLibrary
         
         }
 
-
+        /// <summary>
+        /// tries to get a lock for a given node (used for removal)
+        /// it will try to get lock on previous node, the given node and its next node in order
+        /// it will check for the integrity of the previousnode and currentnode after the lock and return false if the lock fails
+        /// 
+        /// </summary>
+        /// <param name="cachenode"></param>
+        /// <param name="prevNode"></param>
+        /// <param name="locksTaken">if the lock fails the caller should retry</param>
+        /// <returns></returns>
         internal bool TryLock(LinkedListNode<CacheNode<T, V>> cachenode, LinkedListNode<CacheNode<T, V>> prevNode, ArrayList locksTaken)
         {
             bool prevlockTaken = false;

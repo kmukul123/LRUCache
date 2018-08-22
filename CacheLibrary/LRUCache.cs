@@ -158,7 +158,12 @@ namespace CacheLibrary
             }
             return ret;
         }
-
+        /// <summary>
+        /// helper method for testing, to be meant to be called when other operations arent running
+        /// its not really thread safe
+        /// </summary>
+        /// <param name="expectedSize"></param>
+        [Conditional("DEBUG")]
         internal void checkSize(int expectedSize)
         {
             //Debug.Assert(this.cacheDictionary.Count() == expectedSize);
